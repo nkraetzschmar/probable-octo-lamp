@@ -1,0 +1,84 @@
+on: push
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        container: [ patch-github-runner-nodejs ] # [ binfmt-setup, patch-github-runner-nodejs, arm64, arm64-accelerated ]
+    steps:
+      - uses: actions/checkout@v3
+      - name: setup
+        run: |
+          sudo apt-get update
+          sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends qemu-user-static
+      - name: build
+        run: |
+          docker login -u token -p ${{ github.token }} ghcr.io
+          docker build --tag ghcr.io/${{ github.repository }}/${{ matrix.container }} ${{ matrix.container }}
+          docker push ghcr.io/${{ github.repository }}/${{ matrix.container }}
+  test:
+    needs: build
+    runs-on: ubuntu-latest
+    container:
+      image: debian
+    services:
+      patch-github-runner-nodejs:
+        image: ghcr.io/${{ github.repository }}/patch-github-runner-nodejs
+        volumes:
+          - /:/mnt
+        options: --privileged
+    steps:
+      - run: ls -lah /__e/ && ldd /__e/node16/bin/node /__e/node20/bin/node && /__e/node16/bin/node --version && /__e/node20/bin/node --version
+      - uses: actions/checkout@v3
+  # test:
+  #   needs: build
+  #   runs-on: ubuntu-latest
+  #   strategy:
+  #     fail-fast: false
+  #     matrix:
+  #       container: [ arm64, arm64-accelerated ]
+  #   container:
+  #     image: ghcr.io/${{ github.repository }}/${{ matrix.container }}
+  #   services:
+  #     binfmt-setup:
+  #       image: ghcr.io/${{ github.repository }}/binfmt-setup
+  #       options: --privileged
+  #     patch-github-runner-nodejs:
+  #       image: ghcr.io/${{ github.repository }}/patch-github-runner-nodejs
+  #       volumes:
+  #         - /:/mnt
+  #       options: --privileged
+  #   steps:
+  #     - run: ls -lah /__e/ && ldd /__e/node16/bin/node /__e/node20/bin/node
+  #     - uses: actions/checkout@v3
+  #     - name: setup
+  #       run: |
+  #         apt-get update
+  #         DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y \
+  #           bc \
+  #           binutils \
+  #           bison \
+  #           ca-certificates \
+  #           curl \
+  #           flex \
+  #           gcc \
+  #           libc6-dev \
+  #           libssl-dev \
+  #           make \
+  #           neofetch \
+  #           xz-utils \
+  #           ;
+  #     - run: neofetch --stdout
+  #     - name: build coreutils
+  #       run: |
+  #         curl https://ftp.gnu.org/gnu/coreutils/coreutils-9.4.tar.xz | xz -d | tar -x
+  #         cd coreutils-9.4
+  #         FORCE_UNSAFE_CONFIGURE=1 ./configure
+  #         make -j "$(nproc)"
+  #     - name: build minimal linux kernel
+  #       run: |
+  #         curl https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.5.tar.xz | xz -d | tar -x
+  #         cd linux-6.5
+  #         make allnoconfig
+  #         make -j "$(nproc)"

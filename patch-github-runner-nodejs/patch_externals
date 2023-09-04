@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+
+set -eufo pipefail
+
+function is_elf (
+	[ "$(od -A n -t x1 -N 4 "$1" | tr -d ' ')" = "7f454c46" ]
+)
+
+function patch_elf (
+	patchelf --remove-rpath "$1"
+	if patchelf --print-interpreter &> /dev/null; then
+		patchelf --set-interpreter /__e/ld-linux-x86-64.so.2
+	fi
+	patchelf --print-needed "$1" | while read lib; do
+		if [ ! -e "$lib" ]; then
+			cp "/mnt/usr/lib/x86_64-linux-gnu/$lib" "$lib" && patch_elf "$lib" || true
+		fi
+		patchelf --replace-needed "$lib" "/__e/$lib" "$1"
+	done
+
+	echo "patched $(realpath "$1")"
+	ldd "$1" 2> /dev/null || true
+)
+
+cp /mnt/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2 ld-linux-x86-64.so.2
+find . -type f -executable | while read file; do
+	if is_elf "$file"; then
+		patch_elf "$file"
+	fi
+done

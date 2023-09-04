@@ -1,0 +1,19 @@
+bash
+binutils binutils-aarch64-linux-gnu
+bzip2
+coreutils
+cpio
+cpp-12 cpp-12-aarch64-linux-gnu
+dash
+dpkg
+findutils
+g++-12 g++-12-aarch64-linux-gnu
+gcc-12 gcc-12-aarch64-linux-gnu
+gzip
+lz4
+lzip
+lzop
+make
+tar
+xz-utils
+zstd
